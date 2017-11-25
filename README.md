@@ -60,13 +60,26 @@ be called using static calls to the Krumo class. Here are several more examples:
 
  ... and so on, etc.
 
+If you want to get the output returned instead of printed, you can use
+the `krumo::fetch()` method for that:
+
+	$a = krumo::fetch($app, $env);
+
+Please note that the first time you call `Krumo` the dump it produces also
+prints the CSS and the JS code used to expand/collapse the dump nodes.
+
 SKINS
 ------------------------------------------------------------------------------
 There are several skins pre-installed with this package, but if you wish you can
 create skins of your own. The skins are simply CSS files that are prepended to
-the result that Krumo prints. If you want to use images in your CSS (for
-background, list-style, etc), you have to put them inline inside the CSS class
-as data URIs:
+the result that Krumo prints.
+
+To the Krumo skin, you have to set it at `krumo::$skin`:
+
+	krumo::$skin = 'blue';
+
+If you want to use images in your CSS (for background, list-style, etc), you
+have to put them inline inside the CSS class as data URIs:
 
 	background-image: url(data:image/gif;base64,R0lGODlhCQAJALMAAP///wAAAP///wAA...AJAAkAAAQTEIAna33USpwt79vncRpZgpcGRAA7);
 
@@ -74,7 +87,7 @@ Here's an example:
 
 	background: white url(data:image/gif;base64,R0lGODlhCgACALMAAP///8D...AIAAAQIEMhJA7D4gggAOw==) repeat-x;
 
-Here is what the skins look like:
+Here is what the pre-installed skins look like:
 
 * skins/default
 	![skins/schablon.com](http://krumo.kaloyan.info/screenshots/krumo_default_theme.png)

@@ -10,7 +10,7 @@
 * @license http://opensource.org/licenses/lgpl-license.php GNU Lesser General public License Version 2.1
 *
 * @package Krumo
-* @version 0.3.1
+* @version 0.4
 */
 
 //////////////////////////////////////////////////////////////////////////////
@@ -53,7 +53,7 @@ class krumo
 	*/
 	public static function version()
 	{
-		return '0.3.1';
+		return '0.4';
 	}
 
 	// -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -217,6 +217,29 @@ This is a list of all currently loaded PHP extensions.
 		if (!self::_debug())
 		{
 			return false;
+		}
+
+		if (!function_exists('getallheaders'))
+		{
+			function getallheaders()
+			{
+				$headers = array ();
+				foreach ($_SERVER as $name => $value)
+				{
+					if (substr($name, 0, 5) == 'HTTP_')
+					{
+						$key = str_replace(
+							' ',
+							'-',
+							ucwords(strtolower(
+								str_replace('_', ' ', substr($name, 5))
+								))
+							);
+						$headers[$key] = $value;
+					}
+				}
+				return $headers;
+			}
 		}
 
 		// render it
@@ -525,19 +548,61 @@ This is a list of all the values from the <code><b><?php
 		$_ = debug_backtrace();
 		while($d = array_pop($_))
 		{
-			if ((strToLower($d['function']) == 'krumo')
-				|| (!empty($d['class']) && (strToLower($d['class']) == 'krumo')))
+			if (0 === strcasecmp($d['function'], 'krumo'))
 			{
 				break;
 			}
+
+			if (!empty($d['class']))
+			{
+				if (0 === strcasecmp($d['class'], 'krumo'))
+				{
+					break;
+				}
+			}
 		}
+
+		// find what the argument was ?
+		//
+		$name = '';
+		if (!empty($d['file']))
+		{
+			$f = file($d['file']);
+			$name = trim($f[$d['line']-1]);
+
+			// multi-line call ?
+			//
+			if (false === stripos($name, 'krumo'))
+			{
+				for ($i=$d['line']-2; $i >=0; $i--)
+				{
+					$name = $f[$i] . $name;
+					if (false !== stripos($name, 'krumo'))
+					{
+						break;
+					}
+				}
+			}
+			$name = preg_replace(array(
+					'~^.+(krumo)~Uis',
+					'~\?>$~',
+					),
+				array(
+					'\\1',
+					''
+					),
+				$name);
+
+			unset($f);
+		}
+
 
 		// the content
 		//
 		?>
 			<div class="krumo-root">
 				<ul class="krumo-node krumo-first">
-					<?php echo self::_dump($data);?>
+					<?php echo self::_dump($data, $name);?>
 					<li class="krumo-footnote">
 						<div class="krumo-version" style="white-space:nowrap;">
 							<h6>Krumo version <?php echo self::version();?></h6> | <a
@@ -577,37 +642,36 @@ This is a list of all the values from the <code><b><?php
 		}
 	}
 
-	// -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-
 	/**
-	* Returns values from Krumo's configuration
-	*
-	* @param string $group
-	* @param string $name
-	* @param mixed $fallback
-	* @return mixed
+	* Return the dump information about a variable
+	* @param mixed $data,...
 	*/
-	protected static function _config($group, $name, $fallback=null)
+	public static function fetch($data)
 	{
-		static $_config = array();
-
-		// not loaded ?
+		// disabled ?
 		//
-		if (empty($_config))
+		if (!self::_debug())
 		{
-			$_config = (array) @parse_ini_file(
-				KRUMO_DIR . 'krumo.ini',
-				true);
+			return false;
 		}
 
-		// exists ?
-		//
-		return (isset($_config[$group][$name]))
-			? $_config[$group][$name]
-			: $fallback;
+		ob_start();
+                call_user_func_array(
+			array(__CLASS__, 'dump'),
+			func_get_args()
+			);
+
+                return ob_get_clean();
 	}
 
 	// -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+	/**
+	* @var string name of the selected skin; must be the
+	*	name of one of the folders inside the skins/
+	*	folder that contains "skin.css" inside it
+	*/
+	public static $skin = 'schablon.com';
 
 	/**
 	* Print the skin (CSS)
@@ -617,7 +681,7 @@ This is a list of all the values from the <code><b><?php
 	{
 		static $_css = false;
 
-		// already set ?
+		// already printed ?
 		//
 		if ($_css)
 		{
@@ -625,15 +689,19 @@ This is a list of all the values from the <code><b><?php
 		}
 
 		$css = '';
-		$skin = self::_config('skin', 'selected', 'default');
+		$skin = self::$skin;
 
 		// custom selected skin ?
 		//
 		$_ = KRUMO_DIR . "skins/{$skin}/skin.css";
-		if ($fp = @fopen($_, 'r', 1))
+		if (!file_exists($_))
 		{
-			$css = fread($fp, filesize($_));
-			fclose($fp);
+			trigger_error(
+				"Unable to find \"{$_}\"",
+				E_USER_WARNING);
+		} else
+		{
+			$css = file_get_contents($_);
 		}
 
 		// default skin ?
